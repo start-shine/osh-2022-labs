@@ -12,15 +12,20 @@
 #include <unistd.h>
 // wait
 #include <sys/wait.h>
+#include <sys/stat.h>
+#include <pwd.h>
 #include <cstring>
 #include <fcntl.h>
 #include <signal.h> // signal functions
+#include <setjmp.h>
+#include <stdbool.h>
+#include <fstream>
 std::vector<std::string> split(std::string s, const std::string &delimiter);
 std::vector<std::string> cmd_history;
 int arg = 0;                  //命令个数
 char buf[1024];               //读入字符串
 char *command[100];           //切分后的字符串数组
-int pid;                      //设为全局变量，方便获得子进程的进程号
+pid_t pid;                    //设为全局变量，方便获得子进程的进程号
 int flag[100][6];             //管道的输入输出重定向标记
 char *file[100][6] = {0};     //对应两个重定向的文件
 char *argv[100][100];         //参数
@@ -120,6 +125,7 @@ void do_cmd(char **command)
     }
     else if (strcmp(command[i], "history") == 0)
     { // history
+      // std::cout << "ae" << ar;
       flag[ar][3] = 1;
       file[ar][3] = command[i + 1];
       argv[ar][a++] = NULL;
@@ -169,12 +175,13 @@ void do_cmd(char **command)
   {
     // std::cout << 111;
     //  std::cout << "pid" << pid << std::endl;
-    //  std::cout << "ar2" << ar;
+    // std::cout << "ar2" << flag[0][3];
     if (!ar)
     { //没有管道
-      // std::cout << flag[0][4];
-      //  std::cout << flag[0][0];
-      //  std::cout << file[0][0];
+      // std::cout << flag[0][3];
+      //   std::cout << flag[0][0];
+      //   std::cout << file[0][0];
+
       if (flag[0][0])
       { //判断有无输入重定向
         close(0);
@@ -193,6 +200,7 @@ void do_cmd(char **command)
       }
       if (flag[0][3])
       {
+        // std::cout << 1;
         int num = strtol(file[0][3], NULL, 10);
         for (int j = line - num - 1; j < line - 1; j++)
         {
@@ -200,7 +208,7 @@ void do_cmd(char **command)
           // cmd_history.pop_back();                //删除最后一个元素
           std::cout << j << " " << cmd_history[j] << std::endl;
 
-          // do_cmd(cmd_history[j][0].c_str());
+          //   // do_cmd(cmd_history[j][0].c_str());
         }
       }
       // std::cout << flag[0][4];
@@ -330,8 +338,9 @@ void do_cmd(char **command)
   // father
   else
   {
-
-    waitpid(pid, NULL, 0);
+    int wait_status;
+    wait(&wait_status);
+    // waitpid(pid, NULL, 0);
   }
   // 这里只有子进程才会进入
   // execvp 会完全更换子进程接下来的代码，所以正常情况下 execvp 之后这里的代码就没意义了
@@ -344,17 +353,82 @@ void do_cmd(char **command)
 }
 
 // 这里只有父进程（原进程）才会进入
-volatile sig_atomic_t ctrl = 0;
-static void my_handler(int sig)
-{ // can be called asynchronously
-  // ctrl = 1; // set flag
-  printf("\n");
-  printf("#");
+// volatile sig_atomic_t ctrl = 0;
+// static void my_handler(int sig)
+// { // can be called asynchronously
+//   // ctrl = 1; // set flag
+//   printf("\n");
+//   printf("#");
+// }
+#define MAX_CMD_LENGTH 1024
+
+static const char *const EXIT_CMD = "exit";
+static sigjmp_buf env;
+static volatile sig_atomic_t jmp_set;
+
+static void ctrlc_handler(int signal)
+{
+  if (jmp_set == 0)
+    return;
+  if (signal == SIGINT)
+  {
+    siglongjmp(env, 1);
+  }
+}
+
+static int cnt = 0;
+
+int ctrld_handler()
+{
+  if (feof(stdin))
+    return 1;
+  char c;
+  c = std::cin.get();
+  if (c == EOF)
+    return 1;
+  else
+  {
+    std::cin.putback(c);
+    return 0;
+  }
 }
 int main()
 {
+
+  std::string home_path = getenv("HOME");
+  std::string history_txt = home_path + "/history_shell.txt";
+  std::string filename(history_txt);
+  // std::vector<std::string> cmd_history;
+  std::string history_line;
+  std::fstream input_file;
+  input_file.open(filename, std::ios::app | std::ios::in | std::ios::out);
+  if (!input_file.is_open())
+  {
+    std::cout << "Could not open the file - '"
+              << filename << "'" << std::endl;
+    return EXIT_FAILURE;
+  }
+  while (getline(input_file, history_line))
+  {
+    cmd_history.push_back(history_line);
+    line++;
+  }
+  input_file.close();
+
+  sighandler_t sig;
+  if ((sig = signal(SIGINT, ctrlc_handler)) == SIG_ERR)
+  {
+    perror("signal error");
+    exit(1);
+  }
+  if (sigsetjmp(env, 1))
+  {
+    printf("\n");
+    cnt++;
+  }
+  jmp_set = 1;
   // signal(SIGINT, SIG_IGN);
-  signal(SIGINT, my_handler);
+  // signal(SIGINT, my_handler);
   //  不同步 iostream 和 cstdio 的 buffer
   // std::ios::sync_with_stdio(false);
 
@@ -362,6 +436,7 @@ int main()
   std::string cmd;
   while (1)
   {
+
     // if (ctrl)
     //{ // my action when signal set it 1
     // printf("\n Signal caught!\n");
@@ -370,7 +445,10 @@ int main()
     //}
     // 打印提示符
     std::cout << "# ";
-
+    int d = ctrld_handler();
+    // std::cout << d;
+    if (d == 1)
+      exit(1);
     // 读入一行。std::getline 结果不包含换行符。
     std::getline(std::cin, cmd);
     cmd_history.push_back(cmd);
@@ -456,12 +534,26 @@ int main()
     // 退出
     if (args[0] == "exit")
     {
+      std::ofstream in;
+      in.open(history_txt, std::ios::trunc);
+      for (int i = 0; i < line; i++)
+      {
+
+        history_line = cmd_history[i];
+        // std::cout << cmd_history.size() << history_line;
+        // cmd_history.pop_back();
+
+        in << history_line << "\n";
+        // std::cout << history_line << std::endl;
+      }
+      in.close();
       if (args.size() <= 1)
       {
         return 0;
       }
 
       // std::string 转 int
+
       std::stringstream code_stream(args[1]);
       int code = 0;
       code_stream >> code;
