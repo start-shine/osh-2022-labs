@@ -22,8 +22,8 @@
 #include <fstream>
 std::vector<std::string> split(std::string s, const std::string &delimiter);
 std::vector<std::string> cmd_history;
-int arg = 0;                  //命令个数
-char buf[1024];               //读入字符串
+int arg = 0; //命令个数
+// char buf[1024];               //读入字符串
 char *command[100];           //切分后的字符串数组
 pid_t pid;                    //设为全局变量，方便获得子进程的进程号
 int flag[100][6];             //管道的输入输出重定向标记
@@ -31,11 +31,12 @@ char *file[100][6] = {0};     //对应两个重定向的文件
 char *argv[100][100];         //参数
 int ar = 0;                   //管道个数
 char *f = (char *)"temp.txt"; //共享文件
-int line = 0;                 //指令个数
+// int line = 0;                 //指令个数
 
 void do_cmd(char **command);
-void history_judge(std::string cmd)
+int history_judge(std::string cmd, int line)
 {
+  char buf[100];
   strcpy(buf, cmd.c_str());
   bool value;
   if (buf[0] == '!')
@@ -46,7 +47,8 @@ void history_judge(std::string cmd)
     if (buf[1] == '!')
     {
       // excute last instruction
-      num = line - 2;
+      num = line - 1;
+      // printf("num%d", num);
     }
 
     else
@@ -72,19 +74,77 @@ void history_judge(std::string cmd)
       value = false;
     if (value == true)
     {
-      history_judge(cmd_tmp[0]);
+      return history_judge(cmd_tmp[0], num);
       // std::cout << 1;
     }
 
     else
+    {
       do_cmd(cmd_tmp);
+      return 1;
+    }
+
     // do_cmd(cmd_tmp);
   }
+  return 0;
 }
 
 void do_cmd(char **command)
 {
 
+  if (strcmp(command[0], "echo") == 0)
+  {
+    // printf("a");
+    std::string cut = &command[1][1];
+    // std::cout << cut;
+    if (command[1][0] == '$')
+    {
+      extern char **environ;
+      int i;
+      std::cout << getenv(cut.c_str()) << std::endl;
+      // for (i = 0; environ[i] != NULL; i++)
+      // if (cut == environ[i])
+      // printf("%s\n", environ[i]);
+      // continue;
+    }
+
+    else if (command[1][0] == '~')
+    {
+      std::string cwd;
+      std::string home_path = getenv("HOME");
+      // 预先分配好空间
+      cwd.resize(PATH_MAX);
+
+      // std::string to char *: &s[0]（C++17 以上可以用 s.data()）
+      // std::string 保证其内存是连续的
+      const char *ret = getcwd(&cwd[0], PATH_MAX);
+      if (ret == nullptr)
+      {
+        std::cout << "cwd failed\n";
+      }
+      else if (command[1][1] != '/')
+      {
+        if (cut == "root")
+        {
+          std::cout << "/root"
+                    << "\n";
+          // continue;
+        }
+        else if (cut == "")
+        {
+          std::cout << home_path << "\n";
+          // continue;
+        }
+      }
+      else
+      {
+        std::cout << home_path + cut << "\n";
+        // continue;
+      }
+    }
+    return;
+    // std::cout << cut;
+  }
   // 外部命令
   // pid_t pid = fork();
 
@@ -202,7 +262,7 @@ void do_cmd(char **command)
       {
         // std::cout << 1;
         int num = strtol(file[0][3], NULL, 10);
-        for (int j = line - num - 1; j < line - 1; j++)
+        for (int j = cmd_history.size() - num - 1; j < cmd_history.size() - 1; j++)
         {
           // std::string cmdh = cmd_history.back(); //取最后一个元素
           // cmd_history.pop_back();                //删除最后一个元素
@@ -411,7 +471,7 @@ int main()
   while (getline(input_file, history_line))
   {
     cmd_history.push_back(history_line);
-    line++;
+    // line++;
   }
   input_file.close();
 
@@ -448,14 +508,31 @@ int main()
     int d = ctrld_handler();
     // std::cout << d;
     if (d == 1)
+    {
+      std::ofstream in;
+      in.open(history_txt, std::ios::trunc);
+      for (int i = 0; i < cmd_history.size(); i++)
+      {
+
+        history_line = cmd_history[i];
+        // std::cout << cmd_history.size() << history_line;
+        // cmd_history.pop_back();
+
+        in << history_line << "\n";
+        // std::cout << history_line << std::endl;
+      }
+      in.close();
       exit(1);
+    }
+
     // 读入一行。std::getline 结果不包含换行符。
     std::getline(std::cin, cmd);
     cmd_history.push_back(cmd);
     // 按空格分割命令为单词
     std::vector<std::string> args = split(cmd, " ");
-    line++;
-    // 没有可处理的命令
+    // line++;
+    //  printf("987");
+    //   没有可处理的命令
     if (args.empty())
     {
       continue;
@@ -536,7 +613,7 @@ int main()
     {
       std::ofstream in;
       in.open(history_txt, std::ios::trunc);
-      for (int i = 0; i < line; i++)
+      for (int i = 0; i < cmd_history.size(); i++)
       {
 
         history_line = cmd_history[i];
@@ -569,9 +646,14 @@ int main()
     }
     // if (buf[0] == '!')
     //{
-    history_judge(cmd);
+    // printf("987");
+    if (history_judge(cmd, cmd_history.size() - 1))
+      continue;
     // continue;
     //}
+    char buf[100];
+    strcpy(buf, cmd.c_str());
+
     char *ptr = NULL;
     char *temp = strtok_r(buf, " ", &ptr);
     // std::cout << temp;
@@ -583,8 +665,20 @@ int main()
       temp = strtok_r(NULL, " ", &ptr);
       // std::cout << command[j - 1];
     }
+
     arg = j;
-    command[j] = 0; //命令形式的字符串数组最后一位必须是NULL
+
+    command[j] = NULL;
+    //命令形式的字符串数组最后一位必须是NULL
+    // int k = 0;
+    // while (command[k])
+    // {
+    //   printf("%s", command[k]);
+    //   k++;
+    // }
+    // history_judge(cmd, cmd_history.size() - 1);
+    //  printf("%d", flag);
+
     do_cmd(command);
   }
 }
