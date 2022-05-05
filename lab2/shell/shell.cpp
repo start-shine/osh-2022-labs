@@ -22,8 +22,8 @@
 #include <fstream>
 std::vector<std::string> split(std::string s, const std::string &delimiter);
 std::vector<std::string> cmd_history;
-int arg = 0; //命令个数
-// char buf[1024];               //读入字符串
+// int arg = 0; //命令个数
+//  char buf[1024];               //读入字符串
 char *command[100];           //切分后的字符串数组
 pid_t pid;                    //设为全局变量，方便获得子进程的进程号
 int flag[100][6];             //管道的输入输出重定向标记
@@ -33,7 +33,7 @@ int ar = 0;                   //管道个数
 char *f = (char *)"temp.txt"; //共享文件
 // int line = 0;                 //指令个数
 
-void do_cmd(char **command);
+void do_cmd(char **command, int arg);
 int history_judge(std::string cmd, int line)
 {
   char buf[100];
@@ -80,7 +80,7 @@ int history_judge(std::string cmd, int line)
 
     else
     {
-      do_cmd(cmd_tmp);
+      do_cmd(cmd_tmp, j);
       return 1;
     }
 
@@ -89,7 +89,7 @@ int history_judge(std::string cmd, int line)
   return 0;
 }
 
-void do_cmd(char **command)
+void do_cmd(char **command, int arg)
 {
 
   if (strcmp(command[0], "echo") == 0)
@@ -454,7 +454,7 @@ int ctrld_handler()
 }
 int main()
 {
-
+  int arg = 0;
   std::string home_path = getenv("HOME");
   std::string history_txt = home_path + "/history_shell.txt";
   std::string filename(history_txt);
@@ -679,7 +679,7 @@ int main()
     // history_judge(cmd, cmd_history.size() - 1);
     //  printf("%d", flag);
 
-    do_cmd(command);
+    do_cmd(command, arg);
   }
 }
 
