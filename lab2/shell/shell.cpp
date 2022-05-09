@@ -106,6 +106,7 @@ void do_cmd(char **command, int arg)
       // if (cut == environ[i])
       // printf("%s\n", environ[i]);
       // continue;
+      return;
     }
 
     else if (command[1][0] == '~')
@@ -135,15 +136,20 @@ void do_cmd(char **command, int arg)
           std::cout << home_path << "\n";
           // continue;
         }
+        else
+        {
+          std::cout << "/home/" << cut << "\n";
+        }
       }
       else
       {
         std::cout << home_path + cut << "\n";
         // continue;
       }
+      return;
     }
-    return;
-    // std::cout << cut;
+
+    //  std::cout << cut;
   }
   // 外部命令
   // pid_t pid = fork();
