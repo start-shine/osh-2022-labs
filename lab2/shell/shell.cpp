@@ -111,42 +111,50 @@ void do_cmd(char **command, int arg)
 
     else if (command[1][0] == '~')
     {
+      struct passwd *user;
+      user = getpwnam(cut.c_str());
+      if (user != nullptr)
+      {
+        printf("%s\n", user->pw_dir);
+        return;
+      }
       std::string cwd;
       std::string home_path = getenv("HOME");
-      // 预先分配好空间
+
+      //   // 预先分配好空间
       cwd.resize(PATH_MAX);
 
-      // std::string to char *: &s[0]（C++17 以上可以用 s.data()）
-      // std::string 保证其内存是连续的
+      //   // std::string to char *: &s[0]（C++17 以上可以用 s.data()）
+      //   // std::string 保证其内存是连续的
       const char *ret = getcwd(&cwd[0], PATH_MAX);
-      if (ret == nullptr)
+      //   if (ret == nullptr)
+      //   {
+      //     std::cout << "cwd failed\n";
+      //   }
+      //   else if (command[1][1] != '/')
+      //   {
+      //     if (cut == "root")
+      //     {
+      //       std::cout << "/root"
+      //                 << "\n";
+      //       // continue;
+      //     }
+      if (cut == "")
       {
-        std::cout << "cwd failed\n";
+        std::cout << home_path << "\n";
+        return;
       }
-      else if (command[1][1] != '/')
-      {
-        if (cut == "root")
-        {
-          std::cout << "/root"
-                    << "\n";
-          // continue;
-        }
-        else if (cut == "")
-        {
-          std::cout << home_path << "\n";
-          // continue;
-        }
-        else
-        {
-          std::cout << "/home/" << cut << "\n";
-        }
-      }
-      else
-      {
-        std::cout << home_path + cut << "\n";
-        // continue;
-      }
-      return;
+      //     else
+      //     {
+      //       std::cout << "/home/" << cut << "\n";
+      //     }
+      //   }
+      //   else
+      //   {
+      //     std::cout << home_path + cut << "\n";
+      //     // continue;
+      //   }
+      //   return;
     }
 
     //  std::cout << cut;
