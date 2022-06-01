@@ -6,7 +6,7 @@
 #include <netinet/in.h>
 #include <pthread.h>
 
-#define BUF_SIZE 1024
+#define BUF_SIZE 1050
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 struct Pipe
 {
@@ -26,7 +26,7 @@ void *handle_chat(void *data)
     int flag = 0;
     int big = 0;
     struct Pipe *pipe = (struct Pipe *)data;
-    char buf[BUF_SIZE + 10] = "Message:";
+    char buf[BUF_SIZE] = "Message:";
     char buffer[BUF_SIZE];
     ssize_t len;
     char msg[BUF_SIZE];
@@ -34,70 +34,50 @@ void *handle_chat(void *data)
     // strncpy(buffer + 8 ,msg,BUF_SIZE);
     int i;
     memset(buffer, 0, sizeof(buffer));
+    // pthread_mutex_lock(&mutex);
+    int index = 0;
+    int send_flag = 0;
+    int count = 0;
+    // int jike = 0;
+    // FILE * file = fopen("1_out.txt","w");
     while ((len = recv(pipe->fd, buffer, BUF_SIZE, 0)) > 0)
     {
         strcpy(buf, "Message:");
-        pthread_mutex_lock(&mutex);
-        for (i = 0; i < BUF_SIZE; i++)
+        // int index = i + 8;
+        int last = 0;
+        for (i = 0; i < len; i++)
         {
+            flag = 0;
+            buf[i + 8 - last] = buffer[i];
+
             if (buffer[i] == '\n')
             {
-                if (big == 0)
+                // printf("%d ", i + 8 - last);
+                struct Pipe *q = pipe->next;
+                while (q != pipe)
                 {
-                    strcat(buf, buffer);
-                    struct Pipe *q = pipe->next;
-                    while (q != pipe)
-                    {
-                        send(q->fd, buf, i + 9, 0);
-                        q = q->next;
-                    }
-
-                    strncpy(buffer, buffer + i + 1, BUF_SIZE);
-                    i = 0;
-                    flag = 1; // send
+                    send(q->fd, buf, i + 9 - last, 0);
+                    q = q->next;
                 }
-                else
-                {
-                    struct Pipe *q = pipe->next;
-                    while (q != pipe)
-                    {
-                        send(pipe->fd, buffer, i + 1, 0);
-                        q = q->next;
-                    }
-                    strncpy(buffer, buffer + i + 1, BUF_SIZE);
-                    i = 0;
-                    flag = 1; // send
-                    big = 0;
-                }
+                flag = 1;
+                // strncpy(buffer, buffer + i + 1, BUF_SIZE);
+                // i = 0;
+                last = i + 1;
+                strcpy(buf, "Message:");
             }
         }
-        if (flag == 0)
+        if (flag == 0 && len == BUF_SIZE)
         {
-            if (big == 0)
+            // printf("%d ", i + 8 - last);
+            struct Pipe *q = pipe->next;
+            while (q != pipe)
             {
-                strcat(buf, buffer);
-                struct Pipe *q = pipe->next;
-                while (q != pipe)
-                {
-                    send(pipe->fd, buf, i + 8, 0);
-                    q = q->next;
-                }
-                // strncpy(buffer+8,buffer+i+1,BUF_SIZE);
-                big = 1;
-            }
-            else
-            {
-                struct Pipe *q = pipe->next;
-                while (q != pipe)
-                {
-                    send(pipe->fd, buffer, i, 0);
-                    q = q->next;
-                }
-                // strncpy(buffer+8,buffer+i+1,BUF_SIZE);
+                send(q->fd, buf, i + 8 - last, 0);
+                q = q->next;
             }
         }
-        pthread_mutex_unlock(&mutex);
     }
+
     // len < 0 delete pipe
     if (pipe == head)
     {
@@ -180,12 +160,12 @@ int main(int argc, char **argv)
         // pipe[i].fd_recv = fdt->next->num;
         // i++;
         // pthread_exit()
-        // pthread_mutex_lock(&mutx);
+        pthread_mutex_lock(&mutex);
 
         pthread_create(&thread[client], NULL, handle_chat, (void *)head);
-        // pthread_cond_signal(&cond);
+        pthread_cond_signal(&cond);
 
-        // pthread_mutex_unlock(&mutx);
+        pthread_mutex_unlock(&mutex);
         // pthread_cond_signal(&cond);
         client++;
     }

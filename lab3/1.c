@@ -6,7 +6,7 @@
 #include <netinet/in.h>
 #include <pthread.h>
 
-#define BUF_SIZE 100
+#define BUF_SIZE 1000
 struct Pipe
 {
     int fd_send;
@@ -18,8 +18,9 @@ void *handle_chat(void *data)
     int flag = 0;
     int big = 0;
     struct Pipe *pipe = (struct Pipe *)data;
-    char buf[BUF_SIZE + 10] = "Message:";
-    char buffer[BUF_SIZE];
+    char buf[BUF_SIZE + 24];
+    // buf[BUF_SIZE + 9] = '\0';
+    char buffer[BUF_SIZE + 10];
     ssize_t len;
     char msg[BUF_SIZE];
     // scanf("%s",msg);
@@ -28,44 +29,67 @@ void *handle_chat(void *data)
     memset(buffer, 0, sizeof(buffer));
     while ((len = recv(pipe->fd_send, buffer, BUF_SIZE, 0)) > 0)
     {
+        // printf("%ld", len);
         strcpy(buf, "Message:");
-        for (i = 0; i < BUF_SIZE; i++)
+        // int index = i + 8;
+        int last = 0;
+        for (i = 0; i < len; i++)
         {
+            flag = 0;
+            buf[i + 8 - last] = buffer[i];
+
             if (buffer[i] == '\n')
             {
-                if (big == 0)
-                {
-                    strcat(buf, buffer);
-                    send(pipe->fd_recv, buf, i + 9, 0);
-                    strncpy(buffer, buffer + i + 1, BUF_SIZE);
-                    i = 0;
-                    flag = 1; // send
-                }
-                else
-                {
-                    send(pipe->fd_recv, buffer, i + 1, 0);
-                    strncpy(buffer, buffer + i + 1, BUF_SIZE);
-                    i = 0;
-                    flag = 1; // send
-                    big = 0;
-                }
+                // printf("%d ", i + 8 - last);
+                send(pipe->fd_recv, buf, i + 9 - last, 0);
+                flag = 1;
+                // strncpy(buffer, buffer + i + 1, BUF_SIZE);
+                // i = 0;
+                last = i + 1;
+                strcpy(buf, "Message:");
+                //     if (big == 0)
+                //     {
+                //         // strcat(buf, buffer);
+                //         // buf[i + 9] = '\0';
+                //         send(pipe->fd_recv, buf, i + 9, 0);
+                //         //
+                //         // i = 0;
+                //         flag = 1; // send
+                //     }
+                //     else
+                //     {
+                //         send(pipe->fd_recv, buffer, i + 1, 0);
+                //         // strncpy(buffer, buffer + i + 1, BUF_SIZE);
+                //         // i = 0;
+                //         flag = 1; // send
+                //         big = 0;
+                //     }
             }
         }
-        if (flag == 0)
+        // buf[i + 8 - last] = '\0';
+        if (flag == 0 && len == BUF_SIZE)
         {
-            if (big == 0)
-            {
-                strcat(buf, buffer);
-                send(pipe->fd_recv, buf, i + 8, 0);
-                // strncpy(buffer+8,buffer+i+1,BUF_SIZE);
-                big = 1;
-            }
-            else
-            {
-                send(pipe->fd_recv, buffer, i, 0);
-                // strncpy(buffer+8,buffer+i+1,BUF_SIZE);
-            }
+            // printf("%d ", i + 8 - last);
+            send(pipe->fd_recv, buf, i + 8 - last, 0);
         }
+
+        // if (flag == 0)
+        // {
+        //     if (big == 0)
+        //     {
+
+        //         strcat(buf, buffer);
+        //         buf[i + 8] = '\0';
+        //         send(pipe->fd_recv, buf, i + 9, 0);
+        //         // strncpy(buffer+8,buffer+i+1,BUF_SIZE);
+        //         big = 1;
+        //     }
+        //     else
+        //     {
+        //         send(pipe->fd_recv, buffer, i, 0);
+        //         // strncpy(buffer+8,buffer+i+1,BUF_SIZE);
+        //     }
+        // }
     }
     return NULL;
 }

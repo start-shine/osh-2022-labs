@@ -46,14 +46,14 @@ void handle_chat(int data)
         head = 0;
 
         int i, j;
-        int sig = 0;
+        int last = 0;
         int num = 0;
         for (i = 0; i < len; i++)
         {
             if (buffer[i] == '\n')
             {
-                num = i - sig + 1;
-                strncpy(msg + start, buffer + sig, num);
+                num = i - last + 1;
+                strncpy(msg + start, buffer + last, num);
 
                 for (j = 0; j < 32; j++)
                 {
@@ -74,14 +74,14 @@ void handle_chat(int data)
                     }
                 }
 
-                sig = i + 1;
+                last = i + 1;
                 start = 8;
             }
         }
-        if (sig != len)
+        if (last != len)
         {
-            num = len - sig;
-            strncpy(msg + start, buffer + sig, num);
+            num = len - last;
+            strncpy(msg + start, buffer + last, num);
             start = start + num;
         }
     }

@@ -42,11 +42,6 @@ void *handle_send(void *data)
     string s;
     while (1)
     {
-        // pthread_mutex_lock(&send_mutex[pipe->uid]);
-        // while (send_queue[pipe->uid].empty())
-        // {
-        //     pthread_cond_wait(&cv[pipe->uid], &send_mutex[pipe->uid]);
-        // }
         if (!send_queue[pipe->uid].empty())
         {
             s = send_queue[pipe->uid].front();
@@ -113,19 +108,6 @@ void *handle_recv(void *data)
         }
     }
     pthread_cancel(send_thread[pipe->uid]);
-    return NULL;
-}
-
-// wait until recv thread returned
-void *handle_logout(void *data)
-{
-    struct ID *id = (struct ID *)data;
-    pthread_join(id->tid, NULL);
-    id->fd[id->uid] = 0;
-    *id->puid = id->uid;
-    printf("user%d disconnected!\n", id->uid);
-    pthread_mutex_destroy(&send_mutex[id->uid]);
-    pthread_cond_destroy(&cv[id->uid]);
     return NULL;
 }
 
@@ -196,12 +178,6 @@ int main(int argc, char **argv)
         pipe[uid].uid = uid;
         fd[uid] = fdt;
         pthread_create(&recv_thread[uid], NULL, handle_recv, (void *)&pipe[uid]);
-
-        // create log thread
-        // id[uid].tid = recv_thread[uid];
-        // id[uid].uid = uid;
-        // id[uid].puid = &uid;
-        // pthread_create(&log_thread[uid], NULL, handle_logout, (void *)&id[uid]);
     }
     return 0;
 }
